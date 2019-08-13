@@ -1,7 +1,7 @@
 package com.bluejeans.bigqueue;
 
 import java.io.Closeable;
-import java.lang.reflect.Method;
+import java.lang.ref.Cleaner;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 
@@ -17,6 +17,7 @@ class MappedPage implements Closeable {
     private volatile boolean closed = false;
     private final String pageFile;
     private final long index;
+    private static final Cleaner cleaner = Cleaner.create();
 
     public MappedPage(final MappedByteBuffer mbb, final String pageFile, final long index) {
         this.threadLocalBuffer = new ThreadLocalByteBuffer(mbb);
@@ -94,49 +95,17 @@ class MappedPage implements Closeable {
     }
 
     private static void unmap(final MappedByteBuffer buffer) {
-        Cleaner.clean(buffer);
+        cleaner.register(buffer, new Runnable() {
+
+            @Override
+            public void run() {
+                // TODO Auto-generated method stub
+
+            }
+        }).clean();
     }
 
-    /**
-     * Helper class allowing to clean direct buffers.
-     */
-    private static class Cleaner {
-        public static final boolean CLEAN_SUPPORTED;
-        private static final Method directBufferCleaner;
-        private static final Method directBufferCleanerClean;
 
-        static {
-            Method directBufferCleanerX = null;
-            Method directBufferCleanerCleanX = null;
-            boolean v;
-            try {
-                directBufferCleanerX = Class.forName("java.nio.DirectByteBuffer").getMethod("cleaner");
-                directBufferCleanerX.setAccessible(true);
-                directBufferCleanerCleanX = Class.forName("sun.misc.Cleaner").getMethod("clean");
-                directBufferCleanerCleanX.setAccessible(true);
-                v = true;
-            }
-            catch (final Exception e) {
-                v = false;
-            }
-            CLEAN_SUPPORTED = v;
-            directBufferCleaner = directBufferCleanerX;
-            directBufferCleanerClean = directBufferCleanerCleanX;
-        }
-
-        public static void clean(final ByteBuffer buffer) {
-            if (buffer == null)
-                return;
-            if (CLEAN_SUPPORTED && buffer.isDirect())
-                try {
-                    final Object cleaner = directBufferCleaner.invoke(buffer);
-                    directBufferCleanerClean.invoke(cleaner);
-                }
-                catch (final Exception e) {
-                    // silently ignore exception
-                }
-        }
-    }
 
     private static class ThreadLocalByteBuffer extends ThreadLocal<ByteBuffer> {
         private final ByteBuffer _src;

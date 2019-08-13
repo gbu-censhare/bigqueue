@@ -192,7 +192,7 @@ class MappedPageFactory {
 
     public void deletePage(final long index) {
         // remove the page from cache first
-        cache.remove(index);
+        MappedPage remove = cache.remove(index);
         final String fileName = this.getFileNameByIndex(index);
         int count = 0;
         final int maxRound = 10;
@@ -213,8 +213,12 @@ class MappedPageFactory {
                 if (logger.isDebugEnabled())
                     logger.warn("fail to delete file " + fileName + ", tried round = " + count);
             }
-        if (deleted)
+        if (deleted) {
+            if (remove != null) {
+                remove.close();
+            }
             logger.info("Page file " + fileName + " was just deleted.");
+        }
         else
             logger.warn("fail to delete file " + fileName + " after max " + maxRound + " rounds of try, you may delete it manually.");
     }
